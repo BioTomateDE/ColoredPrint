@@ -1,0 +1,24 @@
+[package]
+name = "colored-print"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85.1"
+description = "Concise syntax for colors and styles in a format string literal"
+readme = "./README.md"
+repository = "https://github.com/BioTomateDE/ColoredPrint.git"
+license = "GPL-3"
+keywords = ["color", "text", "print", "styling", "cli"]
+categories = [
+  "command-line-interface",
+  "template-engine",
+  "development-tools",
+  "value-formatting",
+]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+colored = "3.0.0"
+quote = "1.0.42"
+syn = "2.0.111"
