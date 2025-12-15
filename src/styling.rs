@@ -89,13 +89,15 @@ pub fn process_string(string: &str) -> Result<String, String> {
 
         match action {
             BACKGROUND if param == RESET => state.background = None,
-            BACKGROUND => state.background = Some(Color::from_char(param)?),
+            BACKGROUND => state.background = Some(Color::from_char(param).ctx(i, string)?),
             FOREGROUND if param == RESET => state.foreground = None,
-            FOREGROUND => state.foreground = Some(Color::from_char(param)?),
+            FOREGROUND => state.foreground = Some(Color::from_char(param).ctx(i, string)?),
             STYLE if param == RESET => state.styles = Styles::default(),
-            STYLE => state.styles.modify_from_char(param)?,
+            STYLE => state.styles.modify_from_char(param).ctx(i, string)?,
             ALL if param == RESET => state = StyleState::default(),
-            c => return Err(format!("Invalid action character {c:?}")),
+            c => {
+                return Err(format!("Invalid action character {c:?}")).ctx(i, string);
+            }
         }
 
         state.render_reset_to(&mut out);
@@ -110,3 +112,12 @@ pub fn process_string(string: &str) -> Result<String, String> {
 }
 
 // TODO: no-color feature
+
+pub(crate) trait PushContext<T> {
+    fn ctx(self, i: usize, string: &str) -> Result<T, String>;
+}
+impl<T> PushContext<T> for Result<T, String> {
+    fn ctx(self, i: usize, string: &str) -> Result<T, String> {
+        self.map_err(|e| e + &format!(" at position {i}: {:?}", &string[i..]))
+    }
+}

@@ -18,7 +18,10 @@ categories = [
 [lib]
 proc-macro = true
 
+[features]
+default = []
+no-color = []
+
 [dependencies]
-colored = "3.0.0"
 quote = "1.0.42"
 syn = "2.0.111"
