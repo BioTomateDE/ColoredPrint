@@ -104,6 +104,8 @@ pub fn process_string(string: &str) -> Result<String, String> {
         start = i + 1;
     }
 
+    out += &string[start..];
+    state.render_reset_to(&mut out);
     Ok(out)
 }
 
