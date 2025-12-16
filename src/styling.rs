@@ -1,15 +1,23 @@
 mod color;
+mod reader;
 mod style;
-
-use std::str::CharIndices;
 
 use color::Color;
 use style::Styles;
 
-const SEQUENCE_START: &str = "\x1B[";
-const SEQUENCE_END: &str = "m";
+use crate::styling::reader::Reader;
 
-#[derive(Default)]
+const ANSI_SEQUENCE_START: &str = "\x1B[";
+const ANSI_SEQUENCE_END: &str = "m";
+
+const ESCAPE: char = '%';
+const RESET: char = '_';
+const BACKGROUND: char = '#';
+const FOREGROUND: char = ':';
+const STYLE: char = '^';
+const ALL: char = '_';
+
+#[derive(Clone, Default, PartialEq, Eq)]
 struct StyleState {
     foreground: Option<Color>,
     background: Option<Color>,
@@ -26,7 +34,7 @@ impl StyleState {
             return;
         }
 
-        string.push_str(SEQUENCE_START);
+        string.push_str(ANSI_SEQUENCE_START);
 
         if let Some(fg) = self.foreground {
             fg.render_foreground_to(string);
@@ -41,83 +49,108 @@ impl StyleState {
         // Pop last semicolon. No idea if this is needed for most terminals.
         string.pop();
 
-        string.push_str(SEQUENCE_END);
+        string.push_str(ANSI_SEQUENCE_END);
     }
 
     fn render_reset_to(&self, string: &mut String) {
-        string.push_str(SEQUENCE_START);
+        string.push_str(ANSI_SEQUENCE_START);
         string.push('0');
-        string.push_str(SEQUENCE_START);
+        string.push_str(ANSI_SEQUENCE_END);
+    }
+}
+
+struct Parser<'a> {
+    reader: Reader<'a>,
+    output: String,
+    style_state: StyleState,
+    text_start_pos: usize,
+    previous_styles: StyleState,
+}
+
+impl<'a> Parser<'a> {
+    #[must_use]
+    fn new(input_string: &'a str) -> Self {
+        let reader = Reader::new(input_string);
+        let output = String::with_capacity(input_string.len() + 10);
+        Self {
+            reader,
+            output,
+            style_state: StyleState::default(),
+            text_start_pos: 0,
+            previous_styles: StyleState::default(),
+        }
+    }
+
+    fn process(mut self) -> Result<String, String> {
+        while let Some(char) = self.reader.next() {
+            if char != ESCAPE {
+                continue;
+            }
+
+            // Double ESCAPE character in a row => push literal ESCAPE character
+            if self.reader.peek() == Some(ESCAPE) {
+                self.output.push(ESCAPE);
+                self.reader.next();
+                self.text_start_pos = self.reader.position() + 1;
+                continue;
+            }
+
+            if let Err(err) = self.process_escape_sequence() {
+                let pos = self.reader.position();
+                let rest = self.reader.finish(pos);
+                let err = format!("{err} at position {pos}: {rest:?}");
+                return Err(err);
+            }
+        }
+
+        self.output += self.reader.finish(self.text_start_pos);
+        self.style_state.render_reset_to(&mut self.output);
+        Ok(self.output)
+    }
+
+    fn process_escape_sequence(&mut self) -> Result<(), String> {
+        let escape_start = self.reader.position();
+        let param: char = self.reader.next_escape_char()?;
+        let action: char = self.reader.next_escape_char()?;
+
+        match action {
+            BACKGROUND if param == RESET => self.style_state.background = None,
+            BACKGROUND => self.style_state.background = Some(Color::from_char(param)?),
+            FOREGROUND if param == RESET => self.style_state.foreground = None,
+            FOREGROUND => self.style_state.foreground = Some(Color::from_char(param)?),
+            STYLE if param == RESET => self.style_state.styles = Styles::default(),
+            STYLE => self.style_state.styles.modify_from_char(param)?,
+            ALL if param == RESET => self.style_state = StyleState::default(),
+            c => {
+                return Err(format!("Invalid action character {c:?}"));
+            }
+        }
+
+        // If there is another escape sequence directly after, don't write yet.
+        if self.reader.peek() == Some(ESCAPE) {
+            return Ok(());
+        }
+
+        // Now, this is the last escape sequence in a row.
+
+        // Only write ANSI escape sequences if something actually changed.
+        if self.style_state != self.previous_styles {
+            // Only reset style if it was not the default.
+            if !self.previous_styles.is_default() {
+                self.style_state.render_reset_to(&mut self.output);
+            }
+            self.style_state.render_to(&mut self.output);
+        }
+
+        // Append buffered output from the input string
+        self.output += &self.reader.string[self.text_start_pos..escape_start];
+
+        self.text_start_pos = self.reader.position() + 1;
+        self.previous_styles = self.style_state.clone();
+        Ok(())
     }
 }
 
 pub fn process_string(string: &str) -> Result<String, String> {
-    const ESCAPE: char = '%';
-    const RESET: char = '_';
-    const BACKGROUND: char = '#';
-    const FOREGROUND: char = ':';
-    const STYLE: char = '^';
-    const ALL: char = '_';
-
-    fn get_next_char(chars: &mut CharIndices) -> Result<char, String> {
-        chars
-            .next()
-            .ok_or_else(|| format!("Unexpected end of string at {ESCAPE:?} color escape character"))
-            .map(|(_i, ch)| ch)
-    }
-
-    let mut out = String::with_capacity(string.len());
-    let mut state = StyleState::default();
-    let mut start = 0;
-
-    let mut chars = string.char_indices();
-
-    while let Some((i, char)) = chars.next() {
-        if char != ESCAPE {
-            continue;
-        }
-
-        // Double ESCAPE character in a row => push literal ESCAPE character
-        if i == start {
-            out.push(ESCAPE);
-            start = i + 1;
-            continue;
-        }
-
-        let param = get_next_char(&mut chars)?;
-        let action: char = get_next_char(&mut chars)?;
-
-        match action {
-            BACKGROUND if param == RESET => state.background = None,
-            BACKGROUND => state.background = Some(Color::from_char(param).ctx(i, string)?),
-            FOREGROUND if param == RESET => state.foreground = None,
-            FOREGROUND => state.foreground = Some(Color::from_char(param).ctx(i, string)?),
-            STYLE if param == RESET => state.styles = Styles::default(),
-            STYLE => state.styles.modify_from_char(param).ctx(i, string)?,
-            ALL if param == RESET => state = StyleState::default(),
-            c => {
-                return Err(format!("Invalid action character {c:?}")).ctx(i, string);
-            }
-        }
-
-        state.render_reset_to(&mut out);
-        state.render_to(&mut out);
-        out += &string[start..i];
-        start = i + 1;
-    }
-
-    out += &string[start..];
-    state.render_reset_to(&mut out);
-    Ok(out)
-}
-
-// TODO: no-color feature
-
-pub(crate) trait PushContext<T> {
-    fn ctx(self, i: usize, string: &str) -> Result<T, String>;
-}
-impl<T> PushContext<T> for Result<T, String> {
-    fn ctx(self, i: usize, string: &str) -> Result<T, String> {
-        self.map_err(|e| e + &format!(" at position {i}: {:?}", &string[i..]))
-    }
+    Parser::new(string).process()
 }

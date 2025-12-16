@@ -1,4 +1,4 @@
-#[derive(Default)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct Styles {
     bold: bool,
     dimmed: bool,

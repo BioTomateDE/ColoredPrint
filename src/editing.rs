@@ -3,10 +3,7 @@ use quote::{format_ident, quote};
 use syn::{
     LitStr, Token,
     parse::{Parse, ParseStream},
-    parse_macro_input,
 };
-
-use crate::styling::process_string;
 
 struct FormatInput {
     format_str: LitStr,
@@ -30,11 +27,13 @@ impl Parse for FormatInput {
     }
 }
 
+#[cfg(not(feature = "no-color"))]
 pub fn format_color_impl(input: TokenStream, macro_name: &str) -> TokenStream {
-    let FormatInput { format_str, args } = parse_macro_input!(input as FormatInput);
+    let FormatInput { format_str, args } = syn::parse_macro_input!(input as FormatInput);
 
     let original = format_str.value();
-    let processed = match process_string(&original) {
+    let result = crate::styling::process_string(&original);
+    let processed = match result {
         Ok(str) => str,
         Err(err) => {
             return syn::Error::new(format_str.span(), err)
@@ -45,9 +44,16 @@ pub fn format_color_impl(input: TokenStream, macro_name: &str) -> TokenStream {
 
     let format_macro = format_ident!("{macro_name}");
 
-    let expanded = quote! {
+    TokenStream::from(quote! {
         #format_macro!(#processed, #(#args),*)
-    };
+    })
+}
 
-    TokenStream::from(expanded)
+#[cfg(feature = "no-color")]
+pub fn format_color_impl(input: TokenStream, macro_name: &str) -> TokenStream {
+    let format_macro = format_ident!("{macro_name}");
+
+    TokenStream::from(quote! {
+        #format_macro!(#input)
+    })
 }
