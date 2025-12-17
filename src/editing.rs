@@ -27,7 +27,6 @@ impl Parse for FormatInput {
     }
 }
 
-#[cfg(not(feature = "no-color"))]
 pub fn format_color_impl(input: TokenStream, macro_name: &str) -> TokenStream {
     let FormatInput { format_str, args } = syn::parse_macro_input!(input as FormatInput);
 
@@ -46,14 +45,5 @@ pub fn format_color_impl(input: TokenStream, macro_name: &str) -> TokenStream {
 
     TokenStream::from(quote! {
         #format_macro!(#processed, #(#args),*)
-    })
-}
-
-#[cfg(feature = "no-color")]
-pub fn format_color_impl(input: TokenStream, macro_name: &str) -> TokenStream {
-    let format_macro = format_ident!("{macro_name}");
-
-    TokenStream::from(quote! {
-        #format_macro!(#input)
     })
 }

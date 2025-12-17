@@ -68,7 +68,10 @@ impl<'a> Parser<'a> {
                     continue 'outer;
                 }
 
-                if let Err(err) = self.process_escape_sequence() {
+                let param: char = self.reader.next_escape_char()?;
+                let action: char = self.reader.next_escape_char()?;
+
+                if let Err(err) = self.process_escape_sequence(param, action) {
                     let pos = self.reader.position();
                     let rest = &self.reader.string[pos..];
                     let err = format!("{err} at position {pos}: {rest:?}");
@@ -76,21 +79,21 @@ impl<'a> Parser<'a> {
                 }
             }
 
-            // No more escape sequences (in a row); reached text or end
+            // No more escape sequences (in a row); reached text or end.
             self.write_buffer(escape_start);
         }
 
-        let slice = &self.reader.string[self.text_start_pos..];
-        println!("@@ {:?} | {slice:?}", self.output);
-        self.output += slice;
-        self.render_reset_style();
+        // Reached the end of the input string.
+        // Push the last string slice and reset style, if needed.
+        self.output += &self.reader.string[self.text_start_pos..];
+        if !self.style.is_default() {
+            self.render_reset_style();
+        }
+
         Ok(self.output)
     }
 
-    fn process_escape_sequence(&mut self) -> Result<(), String> {
-        let param: char = self.reader.next_escape_char()?;
-        let action: char = self.reader.next_escape_char()?;
-
+    fn process_escape_sequence(&mut self, param: char, action: char) -> Result<(), String> {
         match action {
             BACKGROUND if param == RESET => self.style.background = None,
             BACKGROUND => self.style.background = Some(Color::from_char(param)?),
@@ -107,7 +110,9 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
+    /// Write the buffer and then the styles.
     fn write_buffer(&mut self, escape_start: usize) {
+        // Append buffered output from the input stringd.
         self.output += &self.reader.string[self.text_start_pos..escape_start];
 
         // Only write ANSI escape sequence if something actually changed (very likely though).
@@ -125,15 +130,6 @@ impl<'a> Parser<'a> {
                 self.render_style();
             }
         }
-
-        // Append buffered output from the input string, if text was ever started.
-        println!(
-            "$$ {:?} | {:?} | {}..{}",
-            self.output,
-            &self.reader.string[self.text_start_pos..escape_start],
-            self.text_start_pos,
-            escape_start
-        );
 
         self.text_start_pos = self.reader.position();
         self.previous_style = self.style.clone();

@@ -185,10 +185,14 @@
 //!
 //!   On the flip side, most terminals do support ANSI (even modern Windows!).
 
-#![warn(clippy::all)]
 #![allow(clippy::negative_feature_names)]
 
 mod editing;
+
+#[cfg_attr(
+    feature = "no-color",
+    allow(dead_code, unused_variables, unused_imports)
+)]
 mod styling;
 
 use editing::format_color_impl;

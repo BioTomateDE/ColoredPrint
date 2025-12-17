@@ -31,7 +31,7 @@ impl TextStyle {
         self.styles.render_to(output);
 
         // Pop last semicolon. No idea if this is needed for most terminals.
-        println!("test {:?}", output.pop());
+        output.pop();
 
         output.push_str(ANSI_SEQUENCE_END);
     }
@@ -45,10 +45,12 @@ impl TextStyle {
 
 impl super::Parser<'_> {
     pub fn render_style(&mut self) {
+        #[cfg(not(feature = "no-color"))]
         self.style.render_to(&mut self.output);
     }
 
     pub fn render_reset_style(&mut self) {
+        #[cfg(not(feature = "no-color"))]
         TextStyle::render_reset_to(&mut self.output);
     }
 }

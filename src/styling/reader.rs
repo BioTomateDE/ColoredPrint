@@ -1,6 +1,7 @@
 use super::ESCAPE;
 
 pub struct Reader<'a> {
+    // It would probably be cleaner if this wasnt public tbh
     pub string: &'a str,
     position: usize,
 }
@@ -13,6 +14,9 @@ impl<'a> Reader<'a> {
             position: 0,
         }
     }
+
+    // Not the cleanest code ever.
+    // I blame UTF-8 tho
 
     #[must_use]
     pub fn peek(&self) -> Option<char> {
