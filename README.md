@@ -126,7 +126,7 @@ ceprintln!("%#gText on green");
 // Bold blue text
 cprint!("%b^%b:Important notice");
 // Output (without newline): Important notice (bold blue)
-```rust
+```
 
 ### Multiple styles
 
