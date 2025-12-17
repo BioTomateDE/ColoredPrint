@@ -2,8 +2,18 @@
 //! print colored and styled text to the console using
 //! ANSI escape sequences.
 //!
-//! The regular crate for coloring output in a CLI is
-//! [`colored`](https://crates.io/crates/colored).
+//! It provides modified printing and formatting macros
+//! that process colors and styles at compile time:
+//! * `format!` --> `cformat!`
+//! * `println!` --> `cprintln!`
+//! * `print!` --> `cprint!`
+//! * `eprintln!` --> `ceprintln!`
+//! * `eprint!` --> `ceprint!`
+//!
+//! # What makes this crate useful?
+//!
+//! The standard go-to crate for coloring output in a terminal is
+//! the [`colored`](https://crates.io/crates/colored) crate.
 //! However, this crate requires you to use methods on strings
 //! to add colors to them, which can bloat your print and format macro invocations:
 //! ```no_run
@@ -12,15 +22,15 @@
 //! println!(
 //!    "{}",
 //!    format!(
-//!        "You won {}$ because the dealer busted with a sum of {}!",
-//!        bet.bold(),
+//!        "You won {} because the dealer busted with a sum of {}!",
+//!        format!("{bet}$").bold(),
 //!        dealer_sum.bold()
 //!    )
 //!    .bright_green()
 //! );
 //! ```
 //!
-//! This library makes this a lot more concise:
+//! This library makes using colors and styles a lot more concise:
 //! ```
 //! use colored_print::cprintln;
 //!
@@ -29,21 +39,25 @@
 //!
 //! Albeit, the syntax does look a little confusing.
 //! You'll get used to it, though (probably).
-//! If you prefer a slightly longer but more comprehensible syntax,
-//! check out the [`color-print`](https://crates.io/crates/color-print) crate.
+//!
+//! The alternative [`color-print`](https://crates.io/crates/color-print) crate
+//! is similar to my crate, except it uses XML tags instead.
+//! This syntax does look more readable, however it is a lot longer than
+//! my crate's 3 character syntax.
+//! You can choose whether you prefer concision over slightly poor readability.
 //!
 //! # Syntax Guide
-//! The escape character is `%`.
+//! The style escape character is `%` (percent).
 //! It should be followed by a letter indicating the color or style
-//! and then the action type character.
+//! and then a character indicating your desired action.
 //!
 //! To type a literal `%`, use `%%` (repeat the escape character twice).
 //! To type a literal `%%`, use `%%%%` (you get the point).
 //!
-//! ## Action type characters
-//! * `:` - Foreground / Font color
-//! * `#` - Background color
-//! * `^` - Style
+//! ## Actions
+//! * `:` - Foreground Color (aka Font Color)
+//! * `#` - Background Color
+//! * `^` - Style Effect
 //! * `_` - Wildcard; can clear all styles
 //!
 //! ## Colors
@@ -66,7 +80,10 @@
 //! * `C` - Bright Cyan
 //! * `W` - Bright White
 //!
-//! ## Styles
+//! To reset the foreground/background color to its original terminal color,
+//! you can use the special `_` character in place of the color character.
+//!
+//! ## Style Effects
 //!
 //! * `b` - **Bold** (makes text stand out)
 //! * `d` - Dim (reduces brightness, less prominent)
@@ -74,13 +91,18 @@
 //! * `u` - <u>Underline</u> (adds line beneath text)
 //! * `s` - ~~Strikethrough~~ (draws line through text)
 //!
-//! **Note**: Not all terminals support every style. Some common limitations:
-//! - Windows terminals may not support dim or italic.
-//! - Some terminals render italic as inverse video (swapped foreground and backgrounbd colors).
-//! - Some terminals may not render italic at all.
-//! - Strikethrough is the least widely supported.
-//! - There are more ANSI styles than available in this library,
-//!   but I will not allow `blink` for the sanity of end users.
+//! These style effects are **stackable**;
+//! you can activate as many as you want at the same time.
+//! To reset them, you can use the special `_` character in place of
+//! the style character which resets/deactivates **all** style effects.
+//!
+//! **Note**: Not all terminals support every style effect. Some common limitations:
+//! * Windows terminals may not support dim or italic.
+//! * Some terminals render italic as inverse video (swapped foreground and background colors).
+//! * Some terminals may not render italic at all.
+//! * Strikethrough is the least widely supported.
+//! * There are more ANSI style effects than available in this library,
+//!   but I will not allow things like `blink` for the sanity of end users.
 //!
 //! # Examples
 //!
@@ -124,11 +146,12 @@
 //! ### Clearing styles
 //! ```
 //! // Make text red, then clear foreground color
-//! cprintln!("%r:Error%_: (fixed)");
-//! // Output: "Error" in red, then "(fixed)" in default color
+//! cprintln!("%r:Error%_:Justkidding");
+//! // Output: "Error" in red, then "Justkidding" in default color
 //!
-//! // Note: In this case, this is equivalent to clearing all styles:
-//! cprintln!("%r:Error%__ (fixed)");
+//! // Note: Since there is no background color or style effects set,
+//! //       this is equivalent to clearing all styles in this scenario:
+//! cprintln!("%r:Error%__Justkidding");
 //! ```
 //!
 //! ### Mixing formatted and plain text
@@ -147,7 +170,8 @@
 //! ```
 //!
 //! # Pros of this crate
-//! * Styling is at compile time; no runtime overhead at all.
+//! * Styling is processed entirely at compile time;
+//!   there is no runtime overhead at all.
 //! * Short and concise syntax.
 //!
 //! # Cons of this crate

@@ -38,9 +38,4 @@ impl<'a> Reader<'a> {
         self.next()
             .ok_or_else(|| format!("Unexpected end of string at {ESCAPE:?} color escape character"))
     }
-
-    #[must_use]
-    pub fn finish(self, position: usize) -> &'a str {
-        &self.string[position..]
-    }
 }

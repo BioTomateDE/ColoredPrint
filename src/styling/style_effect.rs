@@ -1,5 +1,5 @@
 #[derive(Clone, Default, PartialEq, Eq)]
-pub struct Styles {
+pub struct StyleFlags {
     bold: bool,
     dimmed: bool,
     italic: bool,
@@ -9,7 +9,7 @@ pub struct Styles {
     // I'm not gonna add a "reverse" style.
 }
 
-impl Styles {
+impl StyleFlags {
     pub(super) const fn is_default(&self) -> bool {
         !(self.bold || self.dimmed || self.italic || self.underline || self.strikethrough)
     }

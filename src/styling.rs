@@ -1,70 +1,28 @@
 mod color;
 mod reader;
-mod style;
+mod style_effect;
+mod text_style;
 
 use color::Color;
-use style::Styles;
+use style_effect::StyleFlags;
 
-use crate::styling::reader::Reader;
-
-const ANSI_SEQUENCE_START: &str = "\x1B[";
-const ANSI_SEQUENCE_END: &str = "m";
+use {reader::Reader, text_style::TextStyle};
 
 const ESCAPE: char = '%';
+
 const RESET: char = '_';
+
 const BACKGROUND: char = '#';
 const FOREGROUND: char = ':';
 const STYLE: char = '^';
 const ALL: char = '_';
 
-#[derive(Clone, Default, PartialEq, Eq)]
-struct StyleState {
-    foreground: Option<Color>,
-    background: Option<Color>,
-    styles: Styles,
-}
-
-impl StyleState {
-    const fn is_default(&self) -> bool {
-        self.foreground.is_none() && self.background.is_none() && self.styles.is_default()
-    }
-
-    fn render_to(&self, string: &mut String) {
-        if self.is_default() {
-            return;
-        }
-
-        string.push_str(ANSI_SEQUENCE_START);
-
-        if let Some(fg) = self.foreground {
-            fg.render_foreground_to(string);
-        }
-
-        if let Some(bg) = self.background {
-            bg.render_background_to(string);
-        }
-
-        self.styles.render_to(string);
-
-        // Pop last semicolon. No idea if this is needed for most terminals.
-        string.pop();
-
-        string.push_str(ANSI_SEQUENCE_END);
-    }
-
-    fn render_reset_to(&self, string: &mut String) {
-        string.push_str(ANSI_SEQUENCE_START);
-        string.push('0');
-        string.push_str(ANSI_SEQUENCE_END);
-    }
-}
-
 struct Parser<'a> {
     reader: Reader<'a>,
     output: String,
-    style_state: StyleState,
+    style: TextStyle,
+    previous_style: TextStyle,
     text_start_pos: usize,
-    previous_styles: StyleState,
 }
 
 impl<'a> Parser<'a> {
@@ -75,79 +33,110 @@ impl<'a> Parser<'a> {
         Self {
             reader,
             output,
-            style_state: StyleState::default(),
+            style: TextStyle::default(),
+            previous_style: TextStyle::default(),
             text_start_pos: 0,
-            previous_styles: StyleState::default(),
         }
     }
 
     fn process(mut self) -> Result<String, String> {
-        while let Some(char) = self.reader.next() {
-            if char != ESCAPE {
-                continue;
-            }
-
-            // Double ESCAPE character in a row => push literal ESCAPE character
-            if self.reader.peek() == Some(ESCAPE) {
-                self.output.push(ESCAPE);
+        'outer: while let Some(first_char) = self.reader.peek() {
+            if first_char != ESCAPE {
                 self.reader.next();
-                self.text_start_pos = self.reader.position() + 1;
                 continue;
             }
+            let escape_start = self.reader.position();
 
-            if let Err(err) = self.process_escape_sequence() {
-                let pos = self.reader.position();
-                let rest = self.reader.finish(pos);
-                let err = format!("{err} at position {pos}: {rest:?}");
-                return Err(err);
+            while self.reader.peek() == Some(ESCAPE) {
+                // Consume the ESCAPE character.
+                self.reader.next();
+
+                // Two ESCAPE characters in a row; push literal ESCAPE character
+                if self.reader.peek() == Some(ESCAPE) {
+                    // Consume the second ESCAPE character.
+                    self.reader.next();
+
+                    // Write the buffer and styles immediately.
+                    // This will also update `self.text_start_pos` accordingly.
+                    self.write_buffer(escape_start);
+
+                    // Then push the literal ESCAPE character.
+                    self.output.push(ESCAPE);
+
+                    // It's no longer an escape sequence; it reached text.
+                    // Therefore, break out of this inner loop and restart.
+                    continue 'outer;
+                }
+
+                if let Err(err) = self.process_escape_sequence() {
+                    let pos = self.reader.position();
+                    let rest = &self.reader.string[pos..];
+                    let err = format!("{err} at position {pos}: {rest:?}");
+                    return Err(err);
+                }
             }
+
+            // No more escape sequences (in a row); reached text or end
+            self.write_buffer(escape_start);
         }
 
-        self.output += self.reader.finish(self.text_start_pos);
-        self.style_state.render_reset_to(&mut self.output);
+        let slice = &self.reader.string[self.text_start_pos..];
+        println!("@@ {:?} | {slice:?}", self.output);
+        self.output += slice;
+        self.render_reset_style();
         Ok(self.output)
     }
 
     fn process_escape_sequence(&mut self) -> Result<(), String> {
-        let escape_start = self.reader.position();
         let param: char = self.reader.next_escape_char()?;
         let action: char = self.reader.next_escape_char()?;
 
         match action {
-            BACKGROUND if param == RESET => self.style_state.background = None,
-            BACKGROUND => self.style_state.background = Some(Color::from_char(param)?),
-            FOREGROUND if param == RESET => self.style_state.foreground = None,
-            FOREGROUND => self.style_state.foreground = Some(Color::from_char(param)?),
-            STYLE if param == RESET => self.style_state.styles = Styles::default(),
-            STYLE => self.style_state.styles.modify_from_char(param)?,
-            ALL if param == RESET => self.style_state = StyleState::default(),
-            c => {
-                return Err(format!("Invalid action character {c:?}"));
+            BACKGROUND if param == RESET => self.style.background = None,
+            BACKGROUND => self.style.background = Some(Color::from_char(param)?),
+            FOREGROUND if param == RESET => self.style.foreground = None,
+            FOREGROUND => self.style.foreground = Some(Color::from_char(param)?),
+            STYLE if param == RESET => self.style.styles = StyleFlags::default(),
+            STYLE => self.style.styles.modify_from_char(param)?,
+            ALL if param == RESET => self.style = TextStyle::default(),
+            _ => {
+                return Err(format!("Invalid action character {action:?}"));
             }
         }
 
-        // If there is another escape sequence directly after, don't write yet.
-        if self.reader.peek() == Some(ESCAPE) {
-            return Ok(());
-        }
+        Ok(())
+    }
 
-        // Now, this is the last escape sequence in a row.
-
-        // Only write ANSI escape sequences if something actually changed.
-        if self.style_state != self.previous_styles {
-            // Only reset style if it was not the default.
-            if !self.previous_styles.is_default() {
-                self.style_state.render_reset_to(&mut self.output);
-            }
-            self.style_state.render_to(&mut self.output);
-        }
-
-        // Append buffered output from the input string
+    fn write_buffer(&mut self, escape_start: usize) {
         self.output += &self.reader.string[self.text_start_pos..escape_start];
 
-        self.text_start_pos = self.reader.position() + 1;
-        self.previous_styles = self.style_state.clone();
-        Ok(())
+        // Only write ANSI escape sequence if something actually changed (very likely though).
+        if self.style != self.previous_style {
+            // Only reset the style if either:
+            // * the current style it the default.
+            // * the previous style WAS NOT the default.
+            // Only one of these can be true since they were verified to be different.
+            if self.style.is_default() || !self.previous_style.is_default() {
+                self.render_reset_style();
+            }
+
+            // Render the style if it's not the default (would cause invalid ANSI escape sequence)
+            if !self.style.is_default() {
+                self.render_style();
+            }
+        }
+
+        // Append buffered output from the input string, if text was ever started.
+        println!(
+            "$$ {:?} | {:?} | {}..{}",
+            self.output,
+            &self.reader.string[self.text_start_pos..escape_start],
+            self.text_start_pos,
+            escape_start
+        );
+
+        self.text_start_pos = self.reader.position();
+        self.previous_style = self.style.clone();
     }
 }
 
