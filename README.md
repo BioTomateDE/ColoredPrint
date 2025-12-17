@@ -112,7 +112,7 @@ the style character which resets/deactivates **all** style effects.
 
 ### Basic usage
 
-````rust
+```rust
 use colored_print::*;
 
 // Red text
@@ -138,7 +138,7 @@ cprintln!("%r:%#yWarning!");
 // Bold, underlined cyan
 cprintln!("%b^%u^%c:Alert");
 // Output: Alert (bold, underlined cyan)
-````
+```
 
 ### Bright colors
 
