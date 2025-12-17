@@ -61,8 +61,11 @@ literal `%%`, use `%%%%` (you get the point).
 - `:` - Foreground Color (aka Font Color)
 - `#` - Background Color
 - `^` - Style Effect
-- `_` - Wildcard; can clear all styles //! //! ## Colors //! \* `k` - Black
-  (Black is 'k', not 'b')
+- `_` - Wildcard; can clear all styles
+
+## Colors
+
+- `k` - Black (Black is 'k', not 'b')
 - `r` - Red
 - `g` - Green
 - `y` - Yellow
