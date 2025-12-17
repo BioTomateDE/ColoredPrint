@@ -17,7 +17,7 @@ The standard go-to crate for coloring output in a terminal is the
 requires you to use methods on strings to add colors to them, which can bloat
 your print and format macro invocations:
 
-```no_run
+```rust
 use colored::Colorize;
 
 println!(
@@ -91,7 +91,7 @@ use the special `_` character in place of the color character.
 - `b` - **Bold** (makes text stand out)
 - `d` - Dim (reduces brightness, less prominent)
 - `i` - _Italic_ (slanted text for emphasis)
-- `u` - <u>Underline</u> (adds line beneath text)
+- `u` - <ins>Underline</ins> (adds line beneath text)
 - `s` - ~~Strikethrough~~ (draws line through text)
 
 These style effects are **stackable**; you can activate as many as you want at
