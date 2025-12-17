@@ -184,6 +184,24 @@
 //!   Since this library functions purely in compile-time, this is unavoidable.
 //!
 //!   On the flip side, most terminals do support ANSI (even modern Windows!).
+//!
+//! # Crate features
+//! There is one opt-in feature available: `no-color`.
+//! When this feature is activated, no ANSI escape sequences will generated,
+//! leading to normal output without any colors or styles.
+//!
+//! Note the following things:
+//! * Your format string still has to be valid, otherwise it will not compile.
+//! * Escape sequences such as `%r:` will not be part of the output, just like in normal mode.
+//! * `%%` will still be needed to output a literal `%`.
+//!
+//! Basically, your format style string should stay the same,
+//! only the generated output is different.
+//!
+//! # Ye end
+//! That's all! If you found a bug, have a feature request or want to improve my code,
+//! feel free to create a GitHub Issue or Pull Request in the
+//! [attached repository](https://github.com/BioTomateDE/ColoredPrint).
 
 #![allow(clippy::negative_feature_names)]
 
