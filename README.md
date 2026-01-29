@@ -42,11 +42,6 @@ cprintln!("%G:You won %b^{bet}$%_^ because the dealer busted with a sum of %b^{d
 Albeit, the syntax does look a little confusing. You'll get used to it, though
 (probably).
 
-The alternative [`color-print`](https://crates.io/crates/color-print) crate is
-similar to my crate, except it uses XML tags instead. This syntax does look more
-readable, however it is a lot longer than my crate's 3 character syntax. You can
-choose whether you prefer concision over slightly poor readability.
-
 # Syntax Guide
 
 The style escape character is `%` (percent). It should be followed by a letter
@@ -185,7 +180,7 @@ cprintln!("Path: %%AppData%%");
 # Pros of this crate
 
 - Styling is processed entirely at compile time; there is no runtime overhead at
-  all.
+  all!
 - Short and concise syntax.
 
 # Cons of this crate
