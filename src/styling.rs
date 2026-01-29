@@ -125,6 +125,8 @@ impl<'a> Parser<'a> {
                 self.render_reset_style();
             }
 
+            // TODO: this causes unnecessary resets
+
             // Render the style if it's not the default (would cause invalid ANSI escape sequence)
             if !self.style.is_default() {
                 self.render_style();
