@@ -1,18 +1,18 @@
 [package]
 name = "colored-print"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 rust-version = "1.85.1"
 description = "Concise syntax for colors and styles in a format string literal"
 readme = "./README.md"
 repository = "https://github.com/BioTomateDE/ColoredPrint.git"
-license = "Apache-2.0"
+license = "Apache-2.0 OR MIT"
 keywords = ["color", "text", "print", "styling", "cli"]
 categories = [
-  "command-line-interface",
-  "template-engine",
-  "development-tools",
-  "value-formatting",
+    "command-line-interface",
+    "template-engine",
+    "development-tools",
+    "value-formatting",
 ]
 
 [lib]
