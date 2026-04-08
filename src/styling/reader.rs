@@ -9,10 +9,7 @@ pub struct Reader<'a> {
 impl<'a> Reader<'a> {
     #[must_use]
     pub const fn new(string: &'a str) -> Self {
-        Self {
-            string,
-            position: 0,
-        }
+        Self { string, position: 0 }
     }
 
     // Not the cleanest code ever.

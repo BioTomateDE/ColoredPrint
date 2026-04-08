@@ -1,4 +1,5 @@
-use crate::styling::{color::Color, style_effect::StyleFlags};
+use crate::styling::color::Color;
+use crate::styling::style_effect::StyleFlags;
 
 const ANSI_SEQUENCE_START: &str = "\x1B[";
 const ANSI_SEQUENCE_END: &str = "m";
@@ -45,12 +46,14 @@ impl TextStyle {
 
 impl super::Parser<'_> {
     pub fn render_style(&mut self) {
-        #[cfg(not(feature = "no-color"))]
-        self.style.render_to(&mut self.output);
+        if !cfg!(feature = "no-color") {
+            self.style.render_to(&mut self.output);
+        }
     }
 
     pub fn render_reset_style(&mut self) {
-        #[cfg(not(feature = "no-color"))]
-        TextStyle::render_reset_to(&mut self.output);
+        if !cfg!(feature = "no-color") {
+            TextStyle::render_reset_to(&mut self.output);
+        }
     }
 }

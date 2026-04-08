@@ -4,9 +4,9 @@ mod style_effect;
 mod text_style;
 
 use color::Color;
+use reader::Reader;
 use style_effect::StyleFlags;
-
-use {reader::Reader, text_style::TextStyle};
+use text_style::TextStyle;
 
 const ESCAPE: char = '%';
 
@@ -115,7 +115,8 @@ impl<'a> Parser<'a> {
         // Append buffered output from the input stringd.
         self.output += &self.reader.string[self.text_start_pos..escape_start];
 
-        // Only write ANSI escape sequence if something actually changed (very likely though).
+        // Only write ANSI escape sequence if something actually changed (very likely
+        // though).
         if self.style != self.previous_style {
             // Only reset the style if either:
             // * the current style it the default.
@@ -127,7 +128,8 @@ impl<'a> Parser<'a> {
 
             // TODO: this causes unnecessary resets
 
-            // Render the style if it's not the default (would cause invalid ANSI escape sequence)
+            // Render the style if it's not the default
+            // (would cause invalid ANSI escape sequence)
             if !self.style.is_default() {
                 self.render_style();
             }

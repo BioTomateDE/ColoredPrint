@@ -10,7 +10,10 @@ pub struct StyleFlags {
 }
 
 impl StyleFlags {
+    #[must_use]
     pub(super) const fn is_default(&self) -> bool {
+        // TODO(const-hack):
+        // Change this to `*self == Self::default()` once it's const-stable.
         !(self.bold || self.dimmed || self.italic || self.underline || self.strikethrough)
     }
 

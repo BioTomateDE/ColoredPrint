@@ -1,9 +1,10 @@
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
-use syn::{
-    LitStr, Token,
-    parse::{Parse, ParseStream},
-};
+use quote::format_ident;
+use quote::quote;
+use syn::LitStr;
+use syn::Token;
+use syn::parse::Parse;
+use syn::parse::ParseStream;
 
 struct FormatInput {
     format_str: LitStr,
