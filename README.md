@@ -1,5 +1,7 @@
+# colored-print
+
 This crate provides an easy and concise way to print colored and styled text to
-the console using ANSI escape sequences.
+the console using [ANSI escape sequences](https://en.wikipedia.org/wiki/ANSI_escape_code).
 
 It provides modified printing and formatting macros that process colors and
 styles at compile time:
@@ -10,12 +12,12 @@ styles at compile time:
 - `eprintln!` --> `ceprintln!`
 - `eprint!` --> `ceprint!`
 
-# What makes this crate useful?
+## What makes this crate useful?
 
 The standard go-to crate for coloring output in a terminal is the
-[`colored`](https://crates.io/crates/colored) crate. However, this crate
-requires you to use methods on strings to add colors to them, which can bloat
-your print and format macro invocations:
+[`colored`](https://crates.io/crates/colored) crate. However, that crate
+requires you to use methods on strings to add colors to them, which results in
+long, unreadable macro invocations and requires multiple allocations.
 
 ```rust
 use colored::Colorize;
@@ -39,26 +41,28 @@ use colored_print::cprintln;
 cprintln!("%G:You won %b^{bet}$%_^ because the dealer busted with a sum of %b^{dealer_sum}%_^!");
 ```
 
-Albeit, the syntax does look a little confusing. You'll get used to it, though
-(probably).
+Because this crate processes colors and styles entirely at compile time,
+it requires no allocations at runtime and adds zero overhead.
 
-# Syntax Guide
+## Syntax Guide
 
 The style escape character is `%` (percent). It should be followed by a letter
-indicating the color or style and then a character indicating your desired
-action.
+indicating the **color** or **style** and then a character indicating your desired
+**action**.
 
 To type a literal `%`, use `%%` (repeat the escape character twice). To type a
-literal `%%`, use `%%%%` (you get the point).
+literal `%%`, use `%%%%` (and so on).
 
-## Actions
+Note: All colors and styles are automatically reset at the end of the string.
 
-- `:` - Foreground Color (aka Font Color)
+### Actions
+
+- `:` - Foreground Color (aka. Font Color)
 - `#` - Background Color
 - `^` - Style Effect
 - `_` - Wildcard; can clear all styles
 
-## Colors
+### Colors
 
 - `k` - Black (Black is 'k', not 'b')
 - `r` - Red
@@ -68,9 +72,9 @@ literal `%%`, use `%%%%` (you get the point).
 - `m` - Magenta
 - `c` - Cyan
 - `w` - White
+- `_` - Default terminal color
 
-These colors have **bright** variants, which causes the letters to be
-capitalized:
+These colors have **bright** variants which use a capital letter:
 
 - `K` - Bright Black (Black is 'K', not 'B')
 - `R` - Bright Red
@@ -81,32 +85,22 @@ capitalized:
 - `C` - Bright Cyan
 - `W` - Bright White
 
-To reset the foreground/background color to its original terminal color, you can
-use the special `_` character in place of the color character.
-
-## Style Effects
+### Style Effects
 
 - `b` - **Bold** (makes text stand out)
-- `d` - Dim (reduces brightness, less prominent)
-- `i` - _Italic_ (slanted text for emphasis)
 - `u` - <ins>Underline</ins> (adds line beneath text)
 - `s` - ~~Strikethrough~~ (draws line through text)
+- `d` - Dim (reduces brightness, less prominent)
+- `i` - _Italic_ (slanted text for emphasis)
 
 These style effects are **stackable**; you can activate as many as you want at
 the same time. To reset them, you can use the special `_` character in place of
 the style character which resets/deactivates **all** style effects.
 
-**Note**: Not all terminals support every style effect. Some common limitations:
+Note: Not all terminals support every style effect.
+Especially older Windows terminals might not render italic or dim properly.
 
-- Windows terminals may not support dim or italic.
-- Some terminals render italic as inverse video (swapped foreground and
-  background colors).
-- Some terminals may not render italic at all.
-- Strikethrough is the least widely supported.
-- There are more ANSI style effects than available in this library, but I will
-  not allow things like `blink` for the sanity of end users.
-
-# Examples
+## Examples
 
 ### Basic usage
 
@@ -163,8 +157,8 @@ cprintln!("%r:Error%__Justkidding");
 ### Mixing formatted and plain text
 
 ```rust
-ceprint!("Status: %g:OK%_:, %r:FAIL");
-// Output (stderr, without newline): "Status: OK, FAIL" (with OK in green, FAIL in red)
+cprint!("Status: %g:OK%_:, %r:FAIL");
+// Output (without newline): "Status: OK, FAIL" (with OK in green, FAIL in red)
 ```
 
 ### Escaping the escape character
@@ -173,49 +167,16 @@ ceprint!("Status: %g:OK%_:, %r:FAIL");
 cprintln!("10%% discount");
 // Output: 10% discount
 
-cprintln!("Path: %%AppData%%");
-// Output: Path: %AppData%
+cprintln!("Go to %%AppData%%/.minecraft");
+// Output: Go to %AppData%/.minecraft
 ```
 
-# Pros of this crate
+## Crate features
 
-- Styling is processed entirely at compile time; there is no runtime overhead at
-  all!
-- Short and concise syntax.
-
-# Cons of this crate
-
-- If the terminal does not support ANSI, it will most likely print out weird
-  looking arrows: `←[31mRed Text←[0m`.
-
-  However, the terminal emulator cannot be detected at compile time since any
-  terminal could run any CLI binary. Since this library functions purely in
-  compile-time, this is unavoidable.
-
-  On the flip side, most terminals do support ANSI (even modern Windows!).
-
-# Crate features
-
-There is one opt-in feature available: `no-color`. When this feature is
-activated, no ANSI escape sequences will generated, leading to normal output
-without any colors or styles.
-
-Note the following things:
-
-- Your format string still has to be valid, otherwise it will not compile.
-- Escape sequences such as `%r:` will not be part of the output, just like in
-  normal mode.
-- `%%` will still be needed to output a literal `%`.
-
-Basically, your format style string should stay the same, only the generated
-output is different.
-
-## Contributing
-
-All contributions are welcome!
-
-By contributing, you agree to:
-
-- License your contributions under this project's license
-- Certify you have the right to submit the code
-- Allow the project maintainer to use your contributions
+There is one crate feature activated by default: `color`.
+This feature can be deactivated by using `default-features = false` in _Cargo.toml_.
+When the `color` feature is disabled, the `%`-syntax is still processed like usual,
+but no ANSI escape sequences will be inserted into the format string literal.
+Deactivating this feature can be useful for terminals that
+do not support ANSI escape codes (most of them do, though).
+It can also be used to allow downstream users to easily disable unwanted colors.

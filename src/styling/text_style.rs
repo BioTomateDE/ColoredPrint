@@ -6,54 +6,117 @@ const ANSI_SEQUENCE_END: &str = "m";
 
 #[derive(Clone, Default, PartialEq, Eq)]
 pub struct TextStyle {
-    pub foreground: Option<Color>,
-    pub background: Option<Color>,
+    pub foreground: Color,
+    pub background: Color,
     pub styles: StyleFlags,
 }
 
 impl TextStyle {
-    pub const fn is_default(&self) -> bool {
-        self.foreground.is_none() && self.background.is_none() && self.styles.is_default()
-    }
-
-    fn render_to(&self, output: &mut String) {
-        output.push_str(ANSI_SEQUENCE_START);
-
-        if let Some(fg) = self.foreground {
-            fg.render_foreground_to(output);
-            output.push(';');
+    fn render_to(&self, output: &mut String, prev: &Self) {
+        // No need to render any ANSI escape sequence if nothing changed.
+        if self == prev {
+            return;
         }
 
-        if let Some(bg) = self.background {
-            bg.render_background_to(output);
-            output.push(';');
+        output.push_str(ANSI_SEQUENCE_START);
+
+        // Choose the most efficient path (least amount of ANSI modifiers).
+        if reset_count(prev, self) <= toggle_count(prev, self) {
+            // Reset all colors and styles, then activate all new colors and styles.
+            if *prev != Self::default() {
+                output.push_str("0;");
+            }
+
+            if self.foreground != Color::Default {
+                *output += self.foreground.foreground_code();
+            }
+
+            if self.background != Color::Default {
+                *output += self.background.foreground_code();
+            }
+
+            self.styles.render_to(output);
+        } else {
+            // Enable/disable certain styles and change the colors to the new ones.
+            if self.foreground != prev.foreground {
+                output.push_str(self.foreground.foreground_code());
+            }
+
+            if self.background != prev.background {
+                output.push_str(self.background.background_code());
+            }
+
+            self.styles.render_diff_to(output, &prev.styles);
         }
 
-        self.styles.render_to(output);
+        // Pop the last semicolon.
+        debug_assert_eq!(output.pop(), Some(';'));
 
-        // Pop last semicolon. No idea if this is needed for most terminals.
-        output.pop();
-
-        output.push_str(ANSI_SEQUENCE_END);
-    }
-
-    fn render_reset_to(output: &mut String) {
-        output.push_str(ANSI_SEQUENCE_START);
-        output.push('0');
         output.push_str(ANSI_SEQUENCE_END);
     }
 }
 
 impl super::Parser<'_> {
     pub fn render_style(&mut self) {
-        if !cfg!(feature = "no-color") {
-            self.style.render_to(&mut self.output);
-        }
+        #[cfg(feature = "color")]
+        self.style.render_to(&mut self.output, &self.previous_style);
     }
+}
 
-    pub fn render_reset_style(&mut self) {
-        if !cfg!(feature = "no-color") {
-            TextStyle::render_reset_to(&mut self.output);
-        }
+/// How many ANSI modifiers it takes to fully reset the color and
+/// style and then activate the new colors/styles.
+fn reset_count(old: &TextStyle, new: &TextStyle) -> u8 {
+    let mut count = 0;
+    if *old != TextStyle::default() {
+        count += 1;
     }
+    if new.foreground != Color::Default {
+        count += 1;
+    }
+    if new.background != Color::Default {
+        count += 1;
+    }
+    if new.styles.bold {
+        count += 1;
+    }
+    if new.styles.dimmed {
+        count += 1;
+    }
+    if new.styles.italic {
+        count += 1;
+    }
+    if new.styles.underline {
+        count += 1;
+    }
+    if new.styles.strikethrough {
+        count += 1;
+    }
+    count
+}
+
+/// How many ANSI modifiers it takes to toggle from the old colors/styles to the new ones.
+fn toggle_count(old: &TextStyle, new: &TextStyle) -> u8 {
+    let mut count = 0;
+    if old.foreground != new.foreground {
+        count += 1;
+    }
+    if old.background != new.background {
+        count += 1;
+    }
+    if old.styles.bold != new.styles.bold {
+        count += 1;
+    }
+    if old.styles.dimmed != new.styles.dimmed {
+        count += 1;
+    }
+    if old.styles.italic != new.styles.italic {
+        count += 1;
+    }
+    if old.styles.underline != new.styles.underline {
+        count += 1;
+    }
+    if old.styles.strikethrough != new.styles.strikethrough {
+        count += 1;
+    }
+    count
 }

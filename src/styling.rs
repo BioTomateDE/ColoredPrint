@@ -5,7 +5,6 @@ mod text_style;
 
 use color::Color;
 use reader::Reader;
-use style_effect::StyleFlags;
 use text_style::TextStyle;
 
 const ESCAPE: char = '%';
@@ -84,27 +83,23 @@ impl<'a> Parser<'a> {
         }
 
         // Reached the end of the input string.
-        // Push the last string slice and reset style, if needed.
+        // Push the last string slice.
         self.output += &self.reader.string[self.text_start_pos..];
-        if !self.style.is_default() {
-            self.render_reset_style();
-        }
+
+        // Reset color/style at the end of the string (if needed).
+        self.previous_style = std::mem::take(&mut self.style);
+        self.render_style();
 
         Ok(self.output)
     }
 
     fn process_escape_sequence(&mut self, param: char, action: char) -> Result<(), String> {
         match action {
-            BACKGROUND if param == RESET => self.style.background = None,
-            BACKGROUND => self.style.background = Some(Color::from_char(param)?),
-            FOREGROUND if param == RESET => self.style.foreground = None,
-            FOREGROUND => self.style.foreground = Some(Color::from_char(param)?),
-            STYLE if param == RESET => self.style.styles = StyleFlags::default(),
+            BACKGROUND => self.style.background = Color::from_char(param)?,
+            FOREGROUND => self.style.foreground = Color::from_char(param)?,
             STYLE => self.style.styles.modify_from_char(param)?,
             ALL if param == RESET => self.style = TextStyle::default(),
-            _ => {
-                return Err(format!("Invalid action character {action:?}"));
-            }
+            _ => return Err(format!("Invalid action character {action:?}")),
         }
 
         Ok(())
@@ -114,27 +109,7 @@ impl<'a> Parser<'a> {
     fn write_buffer(&mut self, escape_start: usize) {
         // Append buffered output from the input stringd.
         self.output += &self.reader.string[self.text_start_pos..escape_start];
-
-        // Only write ANSI escape sequence if something actually changed (very likely
-        // though).
-        if self.style != self.previous_style {
-            // Only reset the style if either:
-            // * the current style it the default.
-            // * the previous style WAS NOT the default.
-            // Only one of these can be true since they were verified to be different.
-            if self.style.is_default() || !self.previous_style.is_default() {
-                self.render_reset_style();
-            }
-
-            // TODO: this causes unnecessary resets
-
-            // Render the style if it's not the default
-            // (would cause invalid ANSI escape sequence)
-            if !self.style.is_default() {
-                self.render_style();
-            }
-        }
-
+        self.render_style();
         self.text_start_pos = self.reader.position();
         self.previous_style = self.style.clone();
     }

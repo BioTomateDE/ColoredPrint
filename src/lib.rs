@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 #![forbid(unsafe_code)]
 #![warn(clippy::cargo, clippy::nursery, clippy::pedantic)]
-#![allow(clippy::negative_feature_names, clippy::struct_excessive_bools)]
+//#![allow(clippy::struct_excessive_bools)]
 
 mod editing;
 mod styling;
